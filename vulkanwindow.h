@@ -13,11 +13,14 @@
 
 #ifdef Q_OS_WIN
 #define VK_USE_PLATFORM_WIN32_KHR
+#define VK_KHR_PLATFORM_SURFACE_EXTENSION_NAME     VK_KHR_WIN32_SURFACE_EXTENSION_NAME
 #elif defined(Q_OS_LINUX)
 #define VK_USE_PLATFORM_XCB_KHR
 #define VK_KHR_XCB_SURFACE
+#define VK_KHR_PLATFORM_SURFACE_EXTENSION_NAME     VK_KHR_XCB_SURFACE_EXTENSION_NAME
 #elif defined(Q_OS_MACOS)
 #define VK_USE_PLATFORM_MACOS_MVK
+#define VK_KHR_PLATFORM_SURFACE_EXTENSION_NAME     VK_MVK_MACOS_SURFACE_EXTENSION_NAME
 #endif
 
 #include <vulkan/vulkan.h>
@@ -127,6 +130,7 @@ protected:
     bool event(QEvent *e) override;
 
 private:
+    int m_timerId;
     bool m_mousePressed = false;
     QPoint m_panStart;
     int32_t m_mipLevels;
@@ -143,8 +147,8 @@ private:
     float m_normOffsetY;
 
     VkInstance m_instance;
-    VkDebugUtilsMessengerEXT debugMessenger;
-    VkSurfaceKHR surface;
+    VkDebugUtilsMessengerEXT m_debugMessenger;
+    VkSurfaceKHR m_surface;
 
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
     VkDevice m_device;
@@ -154,48 +158,43 @@ private:
     VkPipelineLayout m_pipelineLayout;
     VkPipeline m_graphicsPipeline;
 
-    VkQueue graphicsQueue;
-    VkQueue presentQueue;
+    VkQueue m_graphicsQueue;
+    VkQueue m_presentQueue;
 
-    VkSwapchainKHR swapChain;
-    std::vector<VkImage> swapChainImages;
-    VkFormat swapChainImageFormat;
-    VkExtent2D swapChainExtent;
-    std::vector<VkImageView> swapChainImageViews;
-    std::vector<VkFramebuffer> swapChainFramebuffers;
+    VkSwapchainKHR m_swapChain;
+    std::vector<VkImage> m_swapChainImages;
+    VkFormat m_swapChainImageFormat;
+    VkExtent2D m_swapChainExtent;
+    std::vector<VkImageView> m_swapChainImageViews;
+    std::vector<VkFramebuffer> m_swapChainFramebuffers;
 
-    VkRenderPass renderPass;
-    VkDescriptorSetLayout descriptorSetLayout;
-    VkPipelineLayout pipelineLayout;
-    VkPipeline graphicsPipeline;
+    VkCommandPool m_commandPool;
 
-    VkCommandPool commandPool;
+    VkImage m_textureImage;
+    VkDeviceMemory m_textureImageMemory;
+    VkImageView m_textureImageView;
+    VkSampler m_textureSampler;
 
-    VkImage textureImage;
-    VkDeviceMemory textureImageMemory;
-    VkImageView textureImageView;
-    VkSampler textureSampler;
+    VkBuffer m_vertexBuffer;
+    VkDeviceMemory m_vertexBufferMemory;
+    VkBuffer m_indexBuffer;
+    VkDeviceMemory m_indexBufferMemory;
 
-    VkBuffer vertexBuffer;
-    VkDeviceMemory vertexBufferMemory;
-    VkBuffer indexBuffer;
-    VkDeviceMemory indexBufferMemory;
+    std::vector<VkBuffer> m_uniformBuffers;
+    std::vector<VkDeviceMemory> m_uniformBuffersMemory;
+    std::vector<void *> m_uniformBuffersMapped;
 
-    std::vector<VkBuffer> uniformBuffers;
-    std::vector<VkDeviceMemory> uniformBuffersMemory;
-    std::vector<void *> uniformBuffersMapped;
+    VkDescriptorPool m_descriptorPool;
+    std::vector<VkDescriptorSet> m_descriptorSets;
 
-    VkDescriptorPool descriptorPool;
-    std::vector<VkDescriptorSet> descriptorSets;
+    std::vector<VkCommandBuffer> m_commandBuffers;
 
-    std::vector<VkCommandBuffer> commandBuffers;
+    std::vector<VkSemaphore> m_imageAvailableSemaphores;
+    std::vector<VkSemaphore> m_renderFinishedSemaphores;
+    std::vector<VkFence> m_inFlightFences;
+    uint32_t m_currentFrame = 0;
 
-    std::vector<VkSemaphore> imageAvailableSemaphores;
-    std::vector<VkSemaphore> renderFinishedSemaphores;
-    std::vector<VkFence> inFlightFences;
-    uint32_t currentFrame = 0;
-
-    bool framebufferResized = false;
+    bool m_framebufferResized = false;
     VkSurfaceKHR createSurface(QWindow *window, VkInstance instance);
 
     void initVulkan(const QString &imageName);
@@ -328,6 +327,7 @@ private:
     std::vector<const char *> getRequiredExtensions();
 
     static std::vector<char> readFile(const std::string &filename);
+
     bool checkValidationLayerSupport();
 
     static VKAPI_ATTR VkBool32 VKAPI_CALL

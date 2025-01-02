@@ -50,10 +50,6 @@ else()
     endif()
 endif()
 
-# GLFW Setup
-find_package(glfw3 REQUIRED)
-target_link_libraries(VulkanImageViewer PUBLIC glfw)
-
 # Platform-Specific Setup
 if(WIN32)
     # Additional Windows-specific configurations (if needed)
