@@ -13,11 +13,11 @@ VulkanWindow::VulkanWindow()
 
     this->setTitle(imageName);
     initVulkan(imageName);
-    m_timerId = this->startTimer(1);
 }
 
 bool VulkanWindow::event(QEvent *e)
 {
+    bool redraw = false;
     QEvent::Type type = e->type();
 
     if (type == QEvent::MouseButtonPress) {
@@ -28,10 +28,19 @@ bool VulkanWindow::event(QEvent *e)
         m_mousePressed = false;
     }
 
-    if (type == QEvent::Timer) {
-        drawFrame();
-        return true;
+    if (type == QEvent::MouseMove && m_mousePressed) {
+        auto pos = reinterpret_cast<QMouseEvent *>(e)->pos();
+        if (m_panStart != pos) {
+            auto dX = pos.x() - m_panStart.x();
+            auto dY = pos.y() - m_panStart.y();
+
+            imagePan(dY, dX);
+
+            m_panStart = pos;
+            redraw = true;
+        }
     }
+
     if (type == QEvent::Wheel) {
         auto scroll = reinterpret_cast<QWheelEvent *>(e);
         /*
@@ -44,28 +53,27 @@ bool VulkanWindow::event(QEvent *e)
         auto pos = QWindow::mapFromGlobal(QCursor::pos());
 
         onZoomToPixel(pos.x(), pos.y(), zoomIn);
-    }
-    if (type == QEvent::Resize) {
-        m_framebufferResized = true;
+        redraw = true;
     }
     if (type == QEvent::Close) {
-        this->killTimer(m_timerId);
         vkDeviceWaitIdle(m_device);
         cleanup();
         qApp->quit();
     }
-    if (type == QEvent::MouseMove && m_mousePressed) {
-        auto pos = reinterpret_cast<QMouseEvent *>(e)->pos();
-        if (m_panStart != pos) {
-            auto dX = pos.x() - m_panStart.x();
-            auto dY = pos.y() - m_panStart.y();
 
-            imagePan(dY, dX);
-
-            m_panStart = pos;
-            return true;
-        }
+    if (type == QEvent::Resize) {
+        m_framebufferResized = true;
+        redraw = true;
     }
+
+    if (type == QEvent::Show || type == QEvent::Expose) {
+        redraw = true;
+    }
+
+    if (m_vulkanInitDone && redraw) {
+        drawFrame();
+    }
+
     return false;
 }
 
@@ -173,6 +181,8 @@ void VulkanWindow::initVulkan(const QString &imageName)
     createDescriptorSets();
     createCommandBuffers();
     createSyncObjects();
+
+    m_vulkanInitDone = true;
 }
 
 void VulkanWindow::cleanupSwapChain()
@@ -688,23 +698,6 @@ void VulkanWindow::initializeScaling(uint32_t imageWidth,
                                      uint32_t viewportWidth,
                                      uint32_t viewportHeight)
 {
-    float imageAspect = (float) imageWidth / imageHeight;
-    float viewportAspect = (float) viewportWidth / viewportHeight;
-
-    float scaleX, scaleY;
-
-    if (viewportAspect > imageAspect) {
-        scaleX = imageAspect / viewportAspect;
-        scaleY = 1.0f; // Scale to fit height
-    } else {
-        scaleX = 1.0f; // Scale to fit width
-        scaleY = viewportAspect / imageAspect;
-    }
-
-    auto zoomFactor = 1.0f;
-    auto offsetX = 0.0f; // Center the image
-    auto offsetY = 0.0f; // Center the image
-
     m_dynamicParameters.scaleX = 1;
     m_dynamicParameters.scaleY = 1;
     m_dynamicParameters.offsetX = 0;
@@ -764,24 +757,23 @@ void VulkanWindow::onZoomToPixel(float cursorX, float cursorY, bool zoomIn)
     int32_t imageCoordX = (cursorX - m_offsetX) / m_zoomValueX;
     int32_t imageCoordY = (cursorY - m_offsetY) / m_zoomValueY;
 
-    float zoomFactor;
+    float zoomFactorX;
+    float zoomFactorY;
     if (zoomIn) {
-        zoomFactor = m_zoomValueX >= 1 ? 1 : 0.1;
-        zoomFactor = m_zoomValueY >= 1 ? 1 : 0.1;
+        zoomFactorX = m_zoomValueX >= 1 ? 1 : 0.1;
+        zoomFactorY = m_zoomValueY >= 1 ? 1 : 0.1;
     } else {
-        zoomFactor = m_zoomValueX > 1 ? -1 : -0.1;
-        zoomFactor = m_zoomValueY > 1 ? -1 : -0.1;
+        zoomFactorX = m_zoomValueX > 1 ? -1 : -0.1;
+        zoomFactorY = m_zoomValueY > 1 ? -1 : -0.1;
     }
-    float newScaleX = std::clamp(m_zoomValueX + zoomFactor, 0.1f, 16.0f);
-    float newScaleY = std::clamp(m_zoomValueY + zoomFactor, 0.1f, 16.0f);
+    float newScaleX = std::clamp(m_zoomValueX + zoomFactorX, 0.1f, 16.0f);
+    float newScaleY = std::clamp(m_zoomValueY + zoomFactorY, 0.1f, 16.0f);
 
     m_offsetX = cursorX - (imageCoordX * newScaleX);
     m_offsetY = cursorY - (imageCoordY * newScaleY);
 
     m_normOffsetX = normCursorX - (normImageCoordX * newScaleX);
     m_normOffsetY = normCursorY - (normImageCoordY * newScaleY);
-    float xx = 1.0f * (float) m_offsetX / 400.0f + 15.0f;
-    float yy = 1.0f * (float) m_offsetY / 400.0f + 15.0f;
 
     if (newScaleX <= 1 && newScaleY <= 1) {
         viewportWidth *= newScaleX;

@@ -35,12 +35,6 @@
 #include <optional>
 #include <vector>
 
-const int MAX_FRAMES_IN_FLIGHT = 2;
-
-const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
-
-const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
-
 #define NDEBUG
 
 #ifdef NDEBUG
@@ -116,6 +110,12 @@ class VulkanWindow : public QWindow
         float offsetY;
     };
 
+    const int MAX_FRAMES_IN_FLIGHT = 2;
+
+    const std::vector<const char *> validationLayers = {"VK_LAYER_KHRONOS_validation"};
+
+    const std::vector<const char *> deviceExtensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
     const std::vector<Vertex> vertices = {{{-1.0f, -1.0f}, {0.0f, 0.0f}},
                                           {{1.0f, -1.0f}, {1.0f, 0.0f}},
                                           {{1.0f, 1.0f}, {1.0f, 1.0f}},
@@ -130,13 +130,13 @@ protected:
     bool event(QEvent *e) override;
 
 private:
-    int m_timerId;
+    bool m_vulkanInitDone = false;
     bool m_mousePressed = false;
+    UniformBufferObject m_dynamicParameters;
     QPoint m_panStart;
     int32_t m_mipLevels;
     VkExtent2D m_viewport;
     VkOffset2D m_viewportOffset;
-    UniformBufferObject m_dynamicParameters;
     int32_t m_texWidth;
     int32_t m_texHeight;
     float m_zoomValueX;
